@@ -18,10 +18,10 @@ Projetado com foco em simplicidade e performance, o `vue3-plyr` elimina a necess
 
 ## Instalação
 
-Instale o pacote juntamente com o `plyr` (peer dependency):
+Instale o pacote 
 
 ```bash
-npm install vue3-plyr plyr
+npm install vue3-plyr
 ```
 
 ---
