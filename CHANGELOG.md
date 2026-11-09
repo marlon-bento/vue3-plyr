@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.3](https://github.com/marlon-bento/vue3-plyr/compare/v1.1.2...v1.1.3) (2026-11-09)
+
+
+### Bug Fixes
+
+* resolvendo o problema de não ter mandado pro npm da ultima vez as melhorias ([6d3220c](https://github.com/marlon-bento/vue3-plyr/commit/6d3220ce753d29352dc4b5fb6abeea8390ab46f2))
+
 ## [1.1.2](https://github.com/marlon-bento/vue3-plyr/compare/v1.1.1...v1.1.2) (2026-11-09)
 
 
