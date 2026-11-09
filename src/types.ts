@@ -10,6 +10,7 @@ export type ProvedorPlyr = 'youtube' | 'vimeo' | 'html5' | 'audio'
 
 export interface VuePlyrOptions extends Plyr.Options {
   hideYouTubeDOMError?: boolean
+  cleanYouTubeUI?: boolean
 }
 
 export interface VuePlyrPluginOptions {

@@ -70,7 +70,16 @@ const opcoesMescladas = computed<VuePlyrOptions>(() => {
   return {
     hideYouTubeDOMError: true,
     ...opcoesGlobais,
-    ...props.options
+    ...props.options,
+    youtube: {
+      rel: 0,
+      showinfo: 0,
+      iv_load_policy: 3,
+      modestbranding: 1,
+      playsinline: 1,
+      ...(opcoesGlobais.youtube || {}),
+      ...(props.options?.youtube || {})
+    }
   }
 })
 
@@ -277,6 +286,16 @@ defineExpose<VuePlyrExpose>({
 
 .vue-plyr-hidden {
   display: none;
+}
+
+.vue-plyr-container .plyr--youtube .plyr__video-embed {
+  overflow: hidden !important;
+}
+
+.vue-plyr-container .plyr--youtube .plyr__video-embed iframe {
+  pointer-events: none !important;
+  top: -100% !important;
+  height: 300% !important;
 }
 
 .vue-plyr-loading-overlay {
