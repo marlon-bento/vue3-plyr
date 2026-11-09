@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.4](https://github.com/marlon-bento/vue3-plyr/compare/v1.1.3...v1.1.4) (2026-11-09)
+
+
+### Bug Fixes
+
+* arrumando bug que não deixa muda o tempo do video pela barra de progresso ([485d78c](https://github.com/marlon-bento/vue3-plyr/commit/485d78cb83c8af5b24014bfa810f48a0b2432c3a))
+
 ## [1.1.3](https://github.com/marlon-bento/vue3-plyr/compare/v1.1.2...v1.1.3) (2026-11-09)
 
 
