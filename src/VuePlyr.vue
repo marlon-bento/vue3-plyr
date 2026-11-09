@@ -1,11 +1,12 @@
 <!--
 ========
 Componente principal do VuePlyr que encapsula a instância do Plyr, gerencia a
-troca reativa de vídeos, estado de carregamento nativo, eventos e métodos expostos.
+troca reativa de vídeos, estado de carregamento nativo, controle direto de
+progresso (seek), eventos e métodos expostos.
 ========
 -->
 <script setup lang="ts">
-import { ref, shallowRef, computed, inject, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, shallowRef, computed, inject, onMounted, onBeforeUnmount, watch, markRaw } from 'vue'
 import Plyr from 'plyr'
 import 'plyr/dist/plyr.css'
 import { PLYR_OPTIONS_KEY, type VuePlyrOptions, type ProvedorPlyr, type VuePlyrExpose } from './types'
@@ -54,6 +55,9 @@ const isReady = ref<boolean>(false)
 const isLoading = ref<boolean>(true)
 const isPlaying = ref<boolean>(false)
 
+// Armazena função de limpeza dos ouvintes manuais da barra de progresso
+let limparOuvintesBarra: (() => void) | null = null
+
 // Define qual tag HTML deve ser criada quando o usuário não passa slot manual
 const tagElementoPadrao = computed<'div' | 'video' | 'audio'>(() => {
   if (props.source?.type === 'audio' || props.provider === 'audio') {
@@ -69,6 +73,7 @@ const tagElementoPadrao = computed<'div' | 'video' | 'audio'>(() => {
 const opcoesMescladas = computed<VuePlyrOptions>(() => {
   return {
     hideYouTubeDOMError: true,
+    seekTime: 10,
     ...opcoesGlobais,
     ...props.options,
     youtube: {
@@ -108,12 +113,106 @@ function definirEstadoLoading(estado: boolean) {
   emit('loading', estado)
 }
 
+// Obtém a duração real da mídia diretamente da instância ou do provedor embutido
+function obterDuracaoReal(instancia: Plyr): number {
+  if (instancia.duration && Number.isFinite(instancia.duration) && instancia.duration > 0) {
+    return instancia.duration
+  }
+  const embed = (instancia as unknown as { embed?: { getDuration?: () => number } }).embed
+  if (embed && typeof embed.getDuration === 'function') {
+    const duracaoEmbed = embed.getDuration()
+    if (duracaoEmbed && Number.isFinite(duracaoEmbed) && duracaoEmbed > 0) {
+      return duracaoEmbed
+    }
+  }
+  const media = (instancia as unknown as { media?: HTMLMediaElement }).media
+  if (media && Number.isFinite(media.duration) && media.duration > 0) {
+    return media.duration
+  }
+  return 0
+}
+
+// Aplica o novo tempo de reprodução na mídia ativa e atualiza a barra visualmente
+function aplicarTempoVideo(instancia: Plyr, tempoAlvo: number, duracaoTotal: number) {
+  const tempoLimitado = Math.max(0, Math.min(tempoAlvo, duracaoTotal))
+
+  const embed = (instancia as unknown as { embed?: { seekTo?: (segundos: number, allowSeekAhead: boolean) => void } }).embed
+  if (instancia.provider === 'youtube' && embed && typeof embed.seekTo === 'function') {
+    embed.seekTo(tempoLimitado, true)
+  }
+
+  instancia.currentTime = tempoLimitado
+
+  const inputSeek = containerRef.value?.querySelector('input[data-plyr="seek"]') as HTMLInputElement | null
+  if (inputSeek && duracaoTotal > 0) {
+    const porcentagem = (tempoLimitado / duracaoTotal) * 100
+    inputSeek.value = String(porcentagem)
+    inputSeek.style.setProperty('--value', `${porcentagem}%`)
+  }
+}
+
+// Vincula eventos diretos de ponteiro na barra de progresso para garantir que o clique pule o vídeo
+function vincularControleBarraProgresso(instancia: Plyr) {
+  if (limparOuvintesBarra) {
+    limparOuvintesBarra()
+    limparOuvintesBarra = null
+  }
+
+  const inputSeek = containerRef.value?.querySelector('input[data-plyr="seek"]') as HTMLInputElement | null
+  if (!inputSeek) return
+
+  let arrastando = false
+
+  const calcularEIrParaPosicao = (evento: MouseEvent | PointerEvent) => {
+    const duracao = obterDuracaoReal(instancia)
+    if (duracao <= 0) return
+
+    const retangulo = inputSeek.getBoundingClientRect()
+    if (retangulo.width <= 0) return
+
+    const posicaoX = Math.max(0, Math.min(evento.clientX - retangulo.left, retangulo.width))
+    const proporcao = posicaoX / retangulo.width
+    const novoTempo = proporcao * duracao
+
+    aplicarTempoVideo(instancia, novoTempo, duracao)
+  }
+
+  const aoPressionarPonteiro = (evento: PointerEvent) => {
+    arrastando = true
+    calcularEIrParaPosicao(evento)
+  }
+
+  const aoMoverPonteiro = (evento: PointerEvent) => {
+    if (!arrastando) return
+    calcularEIrParaPosicao(evento)
+  }
+
+  const aoSoltarPonteiro = () => {
+    arrastando = false
+  }
+
+  inputSeek.addEventListener('pointerdown', aoPressionarPonteiro, { capture: true })
+  window.addEventListener('pointermove', aoMoverPonteiro)
+  window.addEventListener('pointerup', aoSoltarPonteiro)
+
+  limparOuvintesBarra = () => {
+    inputSeek.removeEventListener('pointerdown', aoPressionarPonteiro, { capture: true })
+    window.removeEventListener('pointermove', aoMoverPonteiro)
+    window.removeEventListener('pointerup', aoSoltarPonteiro)
+  }
+}
+
 // Registra os ouvintes de eventos principais na instância do Plyr
 function registrarEventos(instancia: Plyr) {
   instancia.on('ready', () => {
     isReady.value = true
     definirEstadoLoading(false)
+    vincularControleBarraProgresso(instancia)
     emit('ready', instancia)
+  })
+
+  instancia.on('loadedmetadata', () => {
+    vincularControleBarraProgresso(instancia)
   })
 
   instancia.on('play', (event) => {
@@ -151,11 +250,14 @@ function inicializarPlayer() {
   if (!elementoAlvo) return
 
   definirEstadoLoading(true)
-  player.value = new Plyr(elementoAlvo, opcoesMescladas.value)
-  registrarEventos(player.value)
 
-  if (fonteResolvida.value && !alvoSlot?.getAttribute('data-plyr-embed-id')) {
-    player.value.source = fonteResolvida.value
+  const instancia = markRaw(new Plyr(elementoAlvo, opcoesMescladas.value))
+  player.value = instancia
+  registrarEventos(instancia)
+
+  const possuiEmbedNativo = Boolean(elementoAlvo.getAttribute('data-plyr-embed-id'))
+  if (fonteResolvida.value && !possuiEmbedNativo) {
+    instancia.source = fonteResolvida.value
   }
 }
 
@@ -219,6 +321,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (limparOuvintesBarra) {
+    limparOuvintesBarra()
+    limparOuvintesBarra = null
+  }
   if (!player.value) return
   try {
     player.value.destroy()
@@ -285,7 +391,12 @@ defineExpose<VuePlyrExpose>({
 }
 
 .vue-plyr-hidden {
-  display: none;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
 }
 
 .vue-plyr-container .plyr--youtube .plyr__video-embed {
@@ -298,9 +409,19 @@ defineExpose<VuePlyrExpose>({
   height: 300% !important;
 }
 
+.vue-plyr-container .plyr__controls {
+  z-index: 3 !important;
+  pointer-events: auto !important;
+}
+
+.vue-plyr-container .plyr__progress input[type='range'] {
+  cursor: pointer;
+  pointer-events: auto !important;
+}
+
 .vue-plyr-loading-overlay {
   aspect-ratio: 16 / 9;
-  z-index: 1;
+  z-index: 2;
   display: flex;
   justify-content: center;
   align-items: center;
