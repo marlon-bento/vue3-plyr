@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/marlon-bento/vue3-plyr/compare/v1.1.1...v1.1.2) (2026-11-09)
+
+
+### Bug Fixes
+
+* resolvendo bug de no player do youtube mostrar nome do canal, nome do video, entre outros ([7013b62](https://github.com/marlon-bento/vue3-plyr/commit/7013b624c31a8e7cc7125adb48319e030de69b20))
+
 ## [1.1.1](https://github.com/marlon-bento/vue3-plyr/compare/v1.1.0...v1.1.1) (2026-11-05)
 
 
