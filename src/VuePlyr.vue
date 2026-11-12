@@ -1,8 +1,8 @@
 <!--
 ========
 Componente principal do VuePlyr que encapsula a instância do Plyr, gerencia a
-troca reativa de vídeos, ocultação da interface e das legendas nativas do
-YouTube via overscan horizontal universal sem cortar vídeos verticais (Shorts),
+troca reativa de vídeos, ocultação total da interface, títulos longos e legendas
+nativas do YouTube via overscan horizontal amplo sem cortar vídeos verticais,
 estado de carregamento, controle direto de progresso (seek) e métodos expostos.
 ========
 -->
@@ -473,8 +473,8 @@ defineExpose<VuePlyrExpose>({
 .vue-plyr-container .plyr--youtube .plyr__video-embed iframe {
   pointer-events: none !important;
   top: 0 !important;
-  left: -100% !important;
-  width: 300% !important;
+  left: -300% !important;
+  width: 700% !important;
   height: 100% !important;
 }
 
