@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.6](https://github.com/marlon-bento/vue3-plyr/compare/v1.1.5...v1.1.6) (2026-11-12)
+
+
+### Bug Fixes
+
+* ajustando agora o nome do video que ainda aparece o final dependendo do tamanho do titulo ([67b0236](https://github.com/marlon-bento/vue3-plyr/commit/67b0236f73f630644e9bbe2e8bdcaadec1ca79eb))
+
 ## [1.1.5](https://github.com/marlon-bento/vue3-plyr/compare/v1.1.4...v1.1.5) (2026-11-12)
 
 
