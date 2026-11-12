@@ -1,8 +1,9 @@
 <!--
 ========
 Componente principal do VuePlyr que encapsula a instância do Plyr, gerencia a
-troca reativa de vídeos, estado de carregamento nativo, controle direto de
-progresso (seek), eventos e métodos expostos.
+troca reativa de vídeos, ocultação da interface e das legendas nativas do
+YouTube via overscan horizontal universal sem cortar vídeos verticais (Shorts),
+estado de carregamento, controle direto de progresso (seek) e métodos expostos.
 ========
 -->
 <script setup lang="ts">
@@ -58,6 +59,29 @@ const isPlaying = ref<boolean>(false)
 // Armazena função de limpeza dos ouvintes manuais da barra de progresso
 let limparOuvintesBarra: (() => void) | null = null
 
+// Extrai o ID limpo do vídeo caso tenha sido passada uma URL completa ou link de Short
+const idVideoLimpo = computed<string | null>(() => {
+  if (!props.videoId) return null
+  const valor = props.videoId.trim()
+
+  if (valor.includes('/shorts/')) {
+    const partes = valor.split('/shorts/')[1]
+    return partes ? partes.split(/[?&/]/)[0] : valor
+  }
+
+  if (valor.includes('v=')) {
+    const partes = valor.split('v=')[1]
+    return partes ? partes.split(/[?&/]/)[0] : valor
+  }
+
+  if (valor.includes('youtu.be/')) {
+    const partes = valor.split('youtu.be/')[1]
+    return partes ? partes.split(/[?&/]/)[0] : valor
+  }
+
+  return valor
+})
+
 // Define qual tag HTML deve ser criada quando o usuário não passa slot manual
 const tagElementoPadrao = computed<'div' | 'video' | 'audio'>(() => {
   if (props.source?.type === 'audio' || props.provider === 'audio') {
@@ -69,11 +93,16 @@ const tagElementoPadrao = computed<'div' | 'video' | 'audio'>(() => {
   return 'div'
 })
 
-// Combina as opções padrão, globais e locais passadas via prop
+// Combina as opções padrão, globais e locais passadas via prop desativando legendas
 const opcoesMescladas = computed<VuePlyrOptions>(() => {
   return {
     hideYouTubeDOMError: true,
     seekTime: 10,
+    ratio: '16:9',
+    captions: {
+      active: false,
+      update: false
+    },
     ...opcoesGlobais,
     ...props.options,
     youtube: {
@@ -82,6 +111,7 @@ const opcoesMescladas = computed<VuePlyrOptions>(() => {
       iv_load_policy: 3,
       modestbranding: 1,
       playsinline: 1,
+      cc_load_policy: 0,
       ...(opcoesGlobais.youtube || {}),
       ...(props.options?.youtube || {})
     }
@@ -93,12 +123,12 @@ const fonteResolvida = computed<Plyr.SourceInfo | null>(() => {
   if (props.source) {
     return props.source
   }
-  if (props.videoId) {
+  if (idVideoLimpo.value) {
     return {
       type: props.provider === 'audio' ? 'audio' : 'video',
       sources: [
         {
-          src: props.videoId,
+          src: idVideoLimpo.value,
           provider: props.provider === 'youtube' || props.provider === 'vimeo' ? props.provider : undefined
         }
       ]
@@ -111,6 +141,35 @@ const fonteResolvida = computed<Plyr.SourceInfo | null>(() => {
 function definirEstadoLoading(estado: boolean) {
   isLoading.value = estado
   emit('loading', estado)
+}
+
+// Descarrega forçadamente os módulos de legenda interna da API do YouTube
+function desativarLegendasYouTube(instancia: Plyr) {
+  instancia.toggleCaptions(false)
+
+  const embed = (
+    instancia as unknown as {
+      embed?: {
+        unloadModule?: (modulo: string) => void
+        setOption?: (modulo: string, opcao: string, valor: unknown) => void
+      }
+    }
+  ).embed
+
+  if (!embed) return
+
+  try {
+    if (typeof embed.unloadModule === 'function') {
+      embed.unloadModule('captions')
+      embed.unloadModule('cc')
+    }
+    if (typeof embed.setOption === 'function') {
+      embed.setOption('captions', 'track', {})
+      embed.setOption('cc', 'track', {})
+    }
+  } catch {
+    // Ignora caso o player do YouTube ainda não tenha carregado o módulo de legendas
+  }
 }
 
 // Obtém a duração real da mídia diretamente da instância ou do provedor embutido
@@ -207,17 +266,24 @@ function registrarEventos(instancia: Plyr) {
   instancia.on('ready', () => {
     isReady.value = true
     definirEstadoLoading(false)
+    desativarLegendasYouTube(instancia)
     vincularControleBarraProgresso(instancia)
     emit('ready', instancia)
   })
 
   instancia.on('loadedmetadata', () => {
+    desativarLegendasYouTube(instancia)
     vincularControleBarraProgresso(instancia)
   })
 
   instancia.on('play', (event) => {
     isPlaying.value = true
+    desativarLegendasYouTube(instancia)
     emit('play', event)
+  })
+
+  instancia.on('playing', () => {
+    desativarLegendasYouTube(instancia)
   })
 
   instancia.on('pause', (event) => {
@@ -373,7 +439,7 @@ defineExpose<VuePlyrExpose>({
               ? provider
               : undefined
           "
-          :data-plyr-embed-id="tagElementoPadrao === 'div' ? videoId || undefined : undefined"
+          :data-plyr-embed-id="tagElementoPadrao === 'div' ? idVideoLimpo || undefined : undefined"
         />
       </slot>
     </div>
@@ -401,12 +467,24 @@ defineExpose<VuePlyrExpose>({
 
 .vue-plyr-container .plyr--youtube .plyr__video-embed {
   overflow: hidden !important;
+  background-color: #000 !important;
 }
 
 .vue-plyr-container .plyr--youtube .plyr__video-embed iframe {
   pointer-events: none !important;
-  top: -100% !important;
-  height: 300% !important;
+  top: 0 !important;
+  left: -100% !important;
+  width: 300% !important;
+  height: 100% !important;
+}
+
+.vue-plyr-container .plyr--youtube .plyr__captions,
+.vue-plyr-container .plyr--youtube [data-plyr='captions'] {
+  display: none !important;
+}
+
+.vue-plyr-container .plyr__video-wrapper video {
+  object-fit: contain !important;
 }
 
 .vue-plyr-container .plyr__controls {

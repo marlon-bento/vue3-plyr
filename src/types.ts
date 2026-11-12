@@ -1,7 +1,7 @@
-// ============================================================================
+// ========
 // Definições de tipos, interfaces de propriedades, eventos e chaves de injeção
 // da biblioteca vue3-plyr.
-// ============================================================================
+// ========
 
 import type { InjectionKey, ShallowRef, Ref } from 'vue'
 import type Plyr from 'plyr'
