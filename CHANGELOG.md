@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.5](https://github.com/marlon-bento/vue3-plyr/compare/v1.1.4...v1.1.5) (2026-11-12)
+
+
+### Bug Fixes
+
+* concertando o bug que teve nos videos de youtube formato short que ficava sendo cortado pra tenta esconder os menus do youtube ([21282a1](https://github.com/marlon-bento/vue3-plyr/commit/21282a1b766d0487e6b53ce6cba944c35cd9198c))
+
 ## [1.1.4](https://github.com/marlon-bento/vue3-plyr/compare/v1.1.3...v1.1.4) (2026-11-09)
 
 
